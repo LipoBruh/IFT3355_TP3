@@ -1,5 +1,15 @@
 Emanuel Rollin - 20106951
 
+
+
+
+
+
+
+
+
+
+
 ## Interprétation personnelle du TP:
 
 Le modèle de l'arbre (Tronc et Feuilles) est dicté par le squelette
@@ -78,6 +88,12 @@ compléter TP3.Render.drawTreeRough
   - Utilité
       - Trace la géométrie autour de l'arbre
 
+
+Signature : 
+
+```
+drawTreeRough: function (rootNode, scene, alpha, radialDivisions = 8, leavesCutoff = 0.1, leavesDensity = 10, applesProbability = 0.05, matrix = new THREE.Matrix4()) 
+```
 
 #### c) Courbes de Hermite (15 pts)
 
