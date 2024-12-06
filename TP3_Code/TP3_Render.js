@@ -24,35 +24,96 @@ TP3.Render = {
 		//PlaneBufferGeometry
 		//THREE.BufferGeometryUtils.mergeBufferGeometries
 		if (rootNode.childNode.length == 0){
-			return
+			this.drawBranch(rootNode,scene)
+			this.drawLeaves(rootNode,scene,alpha,leavesDensity)
 		}
 		else{
-			this.drawBranch(rootNode,scene,alpha,matrix)
+			this.drawBranch(rootNode,scene,radialDivisions)
 			//
 			rootNode.childNode.forEach(element => {
-				console.log(element.a0)
-				console.log(element.a1)
 				//
 				this.drawTreeRough(element,scene,alpha,radialDivisions,leavesCutoff,leavesDensity,applesProbability,matrix)
+				
 			});
 		}
 		
 
 	},
+	drawLeaves: function (node, scene,alpha,leavesDensity) {
+		for (var i=0; i<leavesDensity;i++){
+			this.drawLeaf(node,scene,alpha)
+		}
+
+	},
+
+	drawLeaf: function (node, scene,alpha) {
+		const geometry = new THREE.PlaneBufferGeometry(alpha,alpha);
+		const material = new THREE.MeshPhongMaterial({color: 0x3A5F0B,side: THREE.DoubleSide})
+		const plane = new THREE.Mesh(geometry, material );
+		//translate
+		plane.position.copy(node.p1)
+		//rotate
+		const up = new THREE.Vector3(0, 1, 0); 
+		const rotationMatrix = new THREE.Matrix4();
+		rotationMatrix.lookAt(node.generate_rotation_vector(), new THREE.Vector3(0, 0, 0), up);
+		
+		// Extract rotation as a quaternion
+		const quaternion = new THREE.Quaternion();
+		quaternion.setFromRotationMatrix(rotationMatrix);
+		
+		// Apply the quaternion to the cylinder
+		plane.setRotationFromQuaternion(quaternion);
+		plane.rotateX(3.14/2)
+		plane.rotateY(Math.floor(Math.random() * 1.5))
+		plane.rotateX(Math.floor(Math.random() * 1.5))
+		plane.rotateZ(Math.floor(Math.random() * 1.5))
+		//this.drawSphereAt(scene, node.get_middle())
+	
+		//
+		scene.add(plane);
+	},
+
 
 	
 
-	drawBranch: function (node, scene, alpha, matrix = new THREE.Matrix4()) {
-		const geometry = new THREE.CylinderBufferGeometry(node.a1, node.a0, node.generate_vector_magnitude(), 16, 1, false);
+	drawBranch: function (node, scene, radialDivisions) {
+		const geometry = new THREE.CylinderBufferGeometry(node.a1, node.a0, node.generate_vector_magnitude(), radialDivisions, 1, false);
 		const material = new THREE.MeshLambertMaterial({color: 0x8B5A2B});
 		const cylinder = new THREE.Mesh(geometry, material );
-		cylinder.position.copy(node.get_middle().applyMatrix4(matrix))
+		//translate
+		cylinder.position.copy(node.get_middle())
+		//rotate
+		const up = new THREE.Vector3(0, 1, 0); 
+		const rotationMatrix = new THREE.Matrix4();
+		rotationMatrix.lookAt(node.generate_rotation_vector(), new THREE.Vector3(0, 0, 0), up);
+		
+		// Extract rotation as a quaternion
+		const quaternion = new THREE.Quaternion();
+		quaternion.setFromRotationMatrix(rotationMatrix);
+		
+		// Apply the quaternion to the cylinder
+		cylinder.setRotationFromQuaternion(quaternion);
+		cylinder.rotateX(3.14/2)
+		
+		//this.drawSphereAt(scene, node.get_middle())
+	
+		//
 		scene.add(cylinder);
 	},
 
+	drawSphereAt: function (scene, pos){
+
+		const sphereGeometry = new THREE.SphereGeometry(0.05, 4, 4); // Radius 1.5, 32 width/height segments
+		const sphereMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 }); // Red color
+		const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+		scene.add(sphere);
+		sphere.position.set(pos.x, pos.y, pos.z); // Centered at the origin
+	},
 	drawTreeHermite: function (rootNode, scene, alpha, leavesCutoff = 0.1, leavesDensity = 10, applesProbability = 0.05, matrix = new THREE.Matrix4()) {
 		//TODO
 	},
+
+
 
 	updateTreeHermite: function (trunkGeometryBuffer, leavesGeometryBuffer, applesGeometryBuffer, rootNode) {
 		//TODO

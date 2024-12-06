@@ -15,7 +15,13 @@ class Node {
 
 	generate_vector(){
 		var vector = new THREE.Vector3()
-		vector.subVectors( this.p0 , this.p1  ).normalize();
+		vector.subVectors( this.p1 , this.p0  ).normalize();
+		return vector
+	}
+
+	generate_rotation_vector(){
+		var vector = new THREE.Vector3()
+		vector.subVectors( this.p1 , this.get_middle()  ).normalize();
 		return vector
 	}
 
@@ -26,8 +32,7 @@ class Node {
 
 	get_middle(){
 		var vector = new THREE.Vector3()
-		vector.subVectors( this.p0 , this.p1  ).divideScalar(2).multiplyScalar(1)
-		vector.y+=1
+		vector.addVectors( this.p0 , this.p1  ).divideScalar(2)
 		return vector
 	}
 
