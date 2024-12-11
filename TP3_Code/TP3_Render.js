@@ -137,20 +137,32 @@ TP3.Render = {
 			return
 		}
 		if(rootNode.sections.length==0 && !rootNode.parentNode){
-			console.log("true")
 			TP3.Geometry.generateSegmentsHermite(rootNode,4,8)
 		}
 		var geometry = new THREE.BufferGeometry();
 		geometry.setAttribute("position", new THREE.BufferAttribute(new Float32Array([]), 3));
 		geometry.setIndex(new THREE.BufferAttribute(new Uint32Array([]), 1));
 		//
+		this.tris_list=[];
 		this.drawTreeHermiteRecursive(geometry, 0, rootNode, scene, alpha, leavesCutoff, leavesDensity, applesProbability, matrix)
-
+		this.updateBufferFaces(geometry,this.tris_list)
 		geometry.computeVertexNormals();
 		const material = new THREE.MeshLambertMaterial({color: 0x8B5A2B,side: THREE.DoubleSide});
 		const mesh = new THREE.Mesh(geometry, material);
 		scene.add(mesh);
-
+		//
+		//
+		var leaf_geometry = new THREE.BufferGeometry();
+		leaf_geometry.setAttribute("position", new THREE.BufferAttribute(new Float32Array([]), 3));
+		leaf_geometry.setIndex(new THREE.BufferAttribute(new Uint32Array([]), 1));
+		this.drawTreeRough2(rootNode,scene,alpha,leavesCutoff,leavesDensity,applesProbability,matrix)
+		this.updateBufferPoints(leaf_geometry,this.leaf_points)
+		this.updateBufferFaces(leaf_geometry,this.leaf_indexes)
+		leaf_geometry.computeVertexNormals();
+		const material2 = new THREE.MeshPhongMaterial({color: 0x3A5F0B,side: THREE.DoubleSide})
+		const mesh2 = new THREE.Mesh(leaf_geometry, material2);
+		scene.add(mesh2);
+		//
 		
 	},
 
@@ -224,6 +236,122 @@ TP3.Render = {
 	},
 
 
+	drawTreeRough2: function (rootNode, scene, alpha, leavesCutoff = 0.1, leavesDensity = 10, applesProbability = 0.05, matrix = new THREE.Matrix4()) {
+		//TODO
+		//CylinderBufferGeometry
+		//PlaneBufferGeometry
+		//THREE.BufferGeometryUtils.mergeBufferGeometries
+		if (rootNode.childNode.length == 0){
+			this.drawAppleProbability(rootNode,scene,alpha,applesProbability,leavesCutoff)
+			this.drawLeaves2(rootNode,alpha,leavesDensity)
+		}
+		else{
+			this.drawAppleProbability(rootNode,scene,alpha,applesProbability,leavesCutoff)
+			if(rootNode.a0  < alpha*leavesCutoff){
+				this.drawLeaves2(rootNode,alpha,leavesDensity)
+			}
+			//
+			rootNode.childNode.forEach(element => {
+				//
+				this.drawTreeRough2(element,scene,alpha,leavesCutoff,leavesDensity,applesProbability,matrix)
+				
+			});
+		}
+		
+
+	},
+
+
+
+	generateSectionPoints(position,qty,radius){
+		//
+		if (qty<3){ return null}
+		points=[]
+		//assuming y is up  = (0,1,0)
+		//
+		//let's pace n points equal to qty around the radius 
+		for (var radian = 0; radian<6.30; radian+=6.30/qty){
+			//calculate cos and sin
+			var cosX = Math.cos(radian)*radius
+			var sinZ = Math.sin(radian)*radius
+			//
+			point = new THREE.Vector3(position.x + cosX,position.y,position.z+sinZ)
+			points.push(point)
+		}
+		return points
+	},
+
+
+	drawLeaves2: function (node,alpha,leavesDensity) {
+		for (var i=0; i<leavesDensity;i++){
+			this.drawLeaf2(node,alpha)
+		}
+
+	},
+
+	leaf_indexes:[] = [],
+	leaf_points:[] = [],
+
+	drawLeaf2: function (node,alpha) {
+		//
+		var middle = node.get_middle();
+		var middleN = middle.clone().multiplyScalar(-1);
+		var points = this.generateSectionPoints(middle,3,alpha)
+		if (points.length!=3){
+			return
+		}
+		points.forEach(v3=>{
+			//randoms
+			var pm1 = Math.random() < 0.5 ? -1 : 1;
+			var pm2 = Math.random() < 0.5 ? -1 : 1;
+			var pm3 = Math.random() < 0.5 ? -1 : 1;
+			var translation = new THREE.Vector3(middle.x + pm1*Math.random() * alpha/2, middle.y + pm2*Math.random() * alpha/2, middle.z + pm3*Math.random() * alpha/2)
+			//
+			//translate to world origin
+			//
+			v3.add(middleN)
+			//rotate
+			this.applyRandomRotation(v3)
+			v3.add(translation)
+		})
+		//
+		//
+		points.forEach(pt=>{
+			this.leaf_points.push(pt.x)
+			this.leaf_points.push(pt.y)
+			this.leaf_points.push(pt.z)
+			this.leaf_indexes.push(this.leaf_indexes.length)
+
+		})
+		return
+	},
+
+
+	applyRandomRotation:function(vector) {
+			// Create a random quaternion representing the rotation
+			const randomQuaternion = new THREE.Quaternion();
+		
+			// Generate random rotation angles in radians
+			const randomX = Math.random() * Math.PI * 2; // Random angle between 0 and 2π
+			const randomY = Math.random() * Math.PI * 2;
+			const randomZ = Math.random() * Math.PI * 2;
+		
+			// Set the quaternion from Euler angles
+			randomQuaternion.setFromEuler(new THREE.Euler(randomX, randomY, randomZ));
+		
+			// Apply the quaternion rotation to the vector directly
+			vector.applyQuaternion(randomQuaternion);
+		},
+		
+	
+
+
+	drawAppleProbability: function (node, scene, alpha,applesProbability,leavesCutoff) {
+		if (applesProbability>Math.random() && node.a0<leavesCutoff*alpha){
+			this.drawApple(node,scene,alpha)
+		}
+	},
+
 
 
 
@@ -235,7 +363,6 @@ TP3.Render = {
 
 	fill_top_ngon:function(bufferGeometry,index_list){
 		//
-		print("true")
 		faces = this.fill_ngon(bufferGeometry,index_list.reverse())
 		return
 	},
@@ -285,24 +412,40 @@ TP3.Render = {
 
 	},
 
+	tris_list : [] = [],
+
 	fill_tris:function(bufferGeometry, index_list){
 		if(index_list.length==3){
 			if(index_list[2] == undefined){
 				return
 			}
-			//
-			//console.log(index_list)
-			const newIndexList = new Uint32Array(index_list);
-			const currentIndexArray = bufferGeometry.getIndex().array;
-
-			const concatenatedIndices = new Uint32Array(currentIndexArray.length + index_list.length);
-			concatenatedIndices.set(currentIndexArray, 0);
-			concatenatedIndices.set(newIndexList, currentIndexArray.length);
-			
-			bufferGeometry.setIndex(new THREE.BufferAttribute(concatenatedIndices, 1));
+			index_list.forEach(e=>{
+				this.tris_list.push(e)
+			})
 
 		}
 	},
+
+	updateBufferFaces(bufferGeometry,index_list){
+		const newIndexList = new Uint32Array(index_list);
+		const currentIndexArray = bufferGeometry.getIndex().array;
+
+		const concatenatedIndices = new Uint32Array(currentIndexArray.length + index_list.length);
+		concatenatedIndices.set(currentIndexArray, 0);
+		concatenatedIndices.set(newIndexList, currentIndexArray.length);
+		
+		bufferGeometry.setIndex(new THREE.BufferAttribute(concatenatedIndices, 1));
+	},
+
+	updateBufferPoints(bufferGeometry,vertices){
+		const newF32Vertices = new Float32Array(vertices);
+		const existingVertices = bufferGeometry.attributes.position.array;
+		const concatenated = new Float32Array(newF32Vertices.length + existingVertices.length);
+		concatenated.set(existingVertices, 0);
+		concatenated.set(newF32Vertices, existingVertices.length);
+		bufferGeometry.setAttribute("position", new THREE.BufferAttribute(concatenated, 3));
+	},
+
 
 
 	updateTreeHermite: function (trunkGeometryBuffer, leavesGeometryBuffer, applesGeometryBuffer, rootNode) {
