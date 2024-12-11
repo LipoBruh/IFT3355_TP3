@@ -139,26 +139,30 @@ TP3.Render = {
 		if(rootNode.sections.length==0 && !rootNode.parentNode){
 			TP3.Geometry.generateSegmentsHermite(rootNode,4,8)
 		}
+		//branches - init buffer
 		var geometry = new THREE.BufferGeometry();
 		geometry.setAttribute("position", new THREE.BufferAttribute(new Float32Array([]), 3));
 		geometry.setIndex(new THREE.BufferAttribute(new Uint32Array([]), 1));
-		//
-		this.tris_list=[];
+		// recursively populate the buffer
 		this.drawTreeHermiteRecursive(geometry, 0, rootNode, scene, alpha, leavesCutoff, leavesDensity, applesProbability, matrix)
+		this.updateBufferPoints(geometry,this.tris_points)
 		this.updateBufferFaces(geometry,this.tris_list)
 		geometry.computeVertexNormals();
+		//render the buffer
 		const material = new THREE.MeshLambertMaterial({color: 0x8B5A2B,side: THREE.DoubleSide});
 		const mesh = new THREE.Mesh(geometry, material);
 		scene.add(mesh);
 		//
-		//
+		//leaves - init buffer
 		var leaf_geometry = new THREE.BufferGeometry();
 		leaf_geometry.setAttribute("position", new THREE.BufferAttribute(new Float32Array([]), 3));
 		leaf_geometry.setIndex(new THREE.BufferAttribute(new Uint32Array([]), 1));
+		//recursively populate buffer
 		this.drawTreeRough2(rootNode,scene,alpha,leavesCutoff,leavesDensity,applesProbability,matrix)
 		this.updateBufferPoints(leaf_geometry,this.leaf_points)
 		this.updateBufferFaces(leaf_geometry,this.leaf_indexes)
 		leaf_geometry.computeVertexNormals();
+		//render the buffer
 		const material2 = new THREE.MeshPhongMaterial({color: 0x3A5F0B,side: THREE.DoubleSide})
 		const mesh2 = new THREE.Mesh(leaf_geometry, material2);
 		scene.add(mesh2);
@@ -166,6 +170,7 @@ TP3.Render = {
 		
 	},
 
+	tris_points : [] = [],
 
 	drawTreeHermiteRecursive:function(bufferGeometry, index, node, scene, alpha, leavesCutoff, leavesDensity, applesProbability, matrix){
 		var index_now = index
@@ -174,45 +179,31 @@ TP3.Render = {
 		for(var sec = 0; sec<node.sections.length;sec++){
 				var p_index_list=index_list
 				index_list=[]
-				// get vertices & corresponding indexes
-				var vertices = [];
-				var it=0
 				//
+				// get vertices & corresponding indexes
 				node.sections[sec].forEach((v3)=>{
-					it++
 					//
-					//console.log(v3)
-					vertices.push(v3.x,v3.y,v3.z);
-					//this.drawSphereAt(scene,v3,it*10)
-					//
+					this.tris_points.push(v3.x,v3.y,v3.z);
 					index_list.push(index_now)
 					index_now++
 					
 				})
-				// Add vertices to the bufferGeometry
-				const newF32Vertices = new Float32Array(vertices);
-				const existingVertices = bufferGeometry.attributes.position.array;
-				const concatenated = new Float32Array(newF32Vertices.length + existingVertices.length);
-				concatenated.set(existingVertices, 0);
-				concatenated.set(newF32Vertices, existingVertices.length);
-				bufferGeometry.setAttribute("position", new THREE.BufferAttribute(concatenated, 3));
-				//
 				//
 				// Fill faces algos using the indexes of the vertices
 				//
 				if (sec==0){
 					if(!node.parentNode){
-						this.fill_bottom_ngon(bufferGeometry,index_list)
+						this.fill_bottom_ngon(index_list)
 					}
 					else{
 						//maybe logic to connect with parent 
 					}
 				}
 				else if(sec ==node.sections.length-1 && node.childNode.length==0){
-					this.fill_top_ngon(bufferGeometry,index_list)
+					this.fill_top_ngon(index_list)
 				}
 				if(index_list.length>0 && p_index_list.length>0){
-					this.fill_cylinder_ngon(bufferGeometry,index_list,p_index_list)
+					this.fill_cylinder_ngon(index_list,p_index_list)
 				}
 
 			}
@@ -235,6 +226,26 @@ TP3.Render = {
 			
 	},
 
+	
+	drawAppleProbability2: function (node, scene, alpha,applesProbability,leavesCutoff) {
+		if (applesProbability>Math.random() && node.a0<leavesCutoff*alpha){
+			this.drawApple2(node,scene,alpha)
+		}
+	},
+
+	drawApple2: function (node, scene, alpha) {
+		const material = new THREE.MeshPhongMaterial({color: 0x5F0B0B}) 
+		const sphereGeometry = new THREE.SphereGeometry(alpha, 4, 4); // Radius 1.5, 32 width/height segments
+		const sphere = new THREE.Mesh(sphereGeometry, material);
+		//transforms 1. translate
+		sphere.position.copy(node.get_middle())
+		sphere.translateY(-alpha*0.75)
+		// 2. rotate for style
+		sphere.rotateY(Math.floor(Math.random() * 1.5))
+		//add to scene
+		scene.add(sphere);
+	},
+
 
 	drawTreeRough2: function (rootNode, scene, alpha, leavesCutoff = 0.1, leavesDensity = 10, applesProbability = 0.05, matrix = new THREE.Matrix4()) {
 		//TODO
@@ -242,11 +253,11 @@ TP3.Render = {
 		//PlaneBufferGeometry
 		//THREE.BufferGeometryUtils.mergeBufferGeometries
 		if (rootNode.childNode.length == 0){
-			this.drawAppleProbability(rootNode,scene,alpha,applesProbability,leavesCutoff)
+			this.drawAppleProbability2(rootNode,scene,alpha,applesProbability,leavesCutoff)
 			this.drawLeaves2(rootNode,alpha,leavesDensity)
 		}
 		else{
-			this.drawAppleProbability(rootNode,scene,alpha,applesProbability,leavesCutoff)
+			this.drawAppleProbability2(rootNode,scene,alpha,applesProbability,leavesCutoff)
 			if(rootNode.a0  < alpha*leavesCutoff){
 				this.drawLeaves2(rootNode,alpha,leavesDensity)
 			}
@@ -355,19 +366,19 @@ TP3.Render = {
 
 
 
-	fill_bottom_ngon:function(bufferGeometry,index_list){
+	fill_bottom_ngon:function(index_list){
 		//
-		faces = this.fill_ngon(bufferGeometry,index_list)
+		faces = this.fill_ngon(index_list)
 		return
 	},
 
-	fill_top_ngon:function(bufferGeometry,index_list){
+	fill_top_ngon:function(index_list){
 		//
-		faces = this.fill_ngon(bufferGeometry,index_list.reverse())
+		faces = this.fill_ngon(index_list.reverse())
 		return
 	},
 
-	fill_cylinder_ngon : function(bufferGeometry,index_self, index_parent){
+	fill_cylinder_ngon : function(index_self, index_parent){
 		if(index_self.length!=index_parent.length){
 			return
 		}
@@ -376,17 +387,17 @@ TP3.Render = {
 			i_1 = (i+1)%index_self.length
 			//change the order for fill_ngon to work
 			index_list = [index_parent[i],index_parent[i_1],index_self[i_1],index_self[i]]
-			this.fill_ngon(bufferGeometry,index_list)
+			this.fill_ngon(index_list)
 		}
 		return
 	},
 	
-	fill_ngon:function(bufferGeometry,index_list){
+	fill_ngon:function(index_list){
 		if(index_list.length<3){
 			return
 		}
 		if(index_list.length==3){
-			this.fill_tris(bufferGeometry, index_list)
+			this.fill_tris(index_list)
 			return 
 		}
 		else{
@@ -399,7 +410,7 @@ TP3.Render = {
 				tris.push(index_list[index])
 				//
 				if (tris.length==3){
-					this.fill_tris(bufferGeometry, tris)
+					this.fill_tris(tris)
 					tris = [index_list[index]]
 				}
 				if (i%2==0 && index_list[i]!=impairs[0]){ //on ajoute tous les indexs impairs sans dupliquer le 1er
@@ -407,14 +418,14 @@ TP3.Render = {
 				}
 			}
 			//on remplit la face centrale au besoin
-			this.fill_ngon(bufferGeometry,impairs)
+			this.fill_ngon(impairs)
 		}
 
 	},
 
 	tris_list : [] = [],
 
-	fill_tris:function(bufferGeometry, index_list){
+	fill_tris:function(index_list){
 		if(index_list.length==3){
 			if(index_list[2] == undefined){
 				return
