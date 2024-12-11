@@ -25,10 +25,15 @@ TP3.Render = {
 		//THREE.BufferGeometryUtils.mergeBufferGeometries
 		if (rootNode.childNode.length == 0){
 			this.drawBranch(rootNode,scene)
+			this.drawAppleProbability(rootNode,scene,alpha,applesProbability,leavesCutoff)
 			this.drawLeaves(rootNode,scene,alpha,leavesDensity)
 		}
 		else{
 			this.drawBranch(rootNode,scene,radialDivisions)
+			this.drawAppleProbability(rootNode,scene,alpha,applesProbability,leavesCutoff)
+			if(rootNode.a0  < alpha*leavesCutoff){
+				this.drawLeaves(rootNode,scene,alpha,leavesDensity)
+			}
 			//
 			rootNode.childNode.forEach(element => {
 				//
@@ -52,27 +57,44 @@ TP3.Render = {
 		const plane = new THREE.Mesh(geometry, material );
 		//translate
 		plane.position.copy(node.p1)
+		//
+		var pm1 = Math.random() < 0.5 ? -1 : 1;
+		var pm2 = Math.random() < 0.5 ? -1 : 1;
+		var pm3 = Math.random() < 0.5 ? -1 : 1;
+		//
+		plane.translateX(pm1*Math.random() * alpha/2)
+		plane.translateY(pm2*Math.random() * alpha/2)
+		plane.translateZ(pm3*Math.random() * alpha/2)
 		//rotate
-		const up = new THREE.Vector3(0, 1, 0); 
-		const rotationMatrix = new THREE.Matrix4();
-		rotationMatrix.lookAt(node.generate_rotation_vector(), new THREE.Vector3(0, 0, 0), up);
-		
-		// Extract rotation as a quaternion
-		const quaternion = new THREE.Quaternion();
-		quaternion.setFromRotationMatrix(rotationMatrix);
-		
-		// Apply the quaternion to the cylinder
-		plane.setRotationFromQuaternion(quaternion);
-		plane.rotateX(3.14/2)
-		plane.rotateY(Math.floor(Math.random() * 1.5))
-		plane.rotateX(Math.floor(Math.random() * 1.5))
-		plane.rotateZ(Math.floor(Math.random() * 1.5))
-		//this.drawSphereAt(scene, node.get_middle())
+		plane.rotateY(Math.floor(Math.random() * 6.28))
+		plane.rotateX(Math.floor(Math.random() * 6.28))
+		plane.rotateZ(Math.floor(Math.random() * 6.28))
+	
 	
 		//
 		scene.add(plane);
 	},
 
+	drawAppleProbability: function (node, scene, alpha,applesProbability,leavesCutoff) {
+		if (applesProbability>Math.random() && node.a0<leavesCutoff*alpha){
+			this.drawApple(node,scene,alpha)
+		}
+	},
+
+	drawApple: function (node, scene, alpha) {
+		const geometry = new THREE.BoxGeometry(alpha,alpha,alpha);
+		const material = new THREE.MeshPhongMaterial({color: 0x5F0B0B}) 
+		const cube = new THREE.Mesh(geometry, material );
+		//translate
+		cube.position.copy(node.get_middle())
+		cube.translateY(-alpha*0.75)
+		//
+		cube.rotateY(Math.floor(Math.random() * 1.5))
+		//cube.rotateX(Math.floor(Math.random() * 1.5))
+		//cube.rotateZ(Math.floor(Math.random() * 1.5))
+		//
+		scene.add(cube)
+	},
 
 	
 
@@ -87,7 +109,7 @@ TP3.Render = {
 		const rotationMatrix = new THREE.Matrix4();
 		rotationMatrix.lookAt(node.generate_rotation_vector(), new THREE.Vector3(0, 0, 0), up);
 		
-		// Extract rotation as a quaternion
+		// Extract rotation as a quaternionn
 		const quaternion = new THREE.Quaternion();
 		quaternion.setFromRotationMatrix(rotationMatrix);
 		
@@ -95,24 +117,192 @@ TP3.Render = {
 		cylinder.setRotationFromQuaternion(quaternion);
 		cylinder.rotateX(3.14/2)
 		
-		//this.drawSphereAt(scene, node.get_middle())
+
 	
 		//
 		scene.add(cylinder);
 	},
 
-	drawSphereAt: function (scene, pos){
+	drawSphereAt: function (scene, pos,i){
 
 		const sphereGeometry = new THREE.SphereGeometry(0.05, 4, 4); // Radius 1.5, 32 width/height segments
-		const sphereMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 }); // Red color
+		const sphereMaterial = new THREE.MeshBasicMaterial({ color: `rgb(0,0,${i*6})` }); // Red color
 		const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
 		scene.add(sphere);
 		sphere.position.set(pos.x, pos.y, pos.z); // Centered at the origin
 	},
+	
 	drawTreeHermite: function (rootNode, scene, alpha, leavesCutoff = 0.1, leavesDensity = 10, applesProbability = 0.05, matrix = new THREE.Matrix4()) {
-		//TODO
+		if (!rootNode){
+			return
+		}
+		if(rootNode.sections.length==0 && !rootNode.parentNode){
+			console.log("true")
+			TP3.Geometry.generateSegmentsHermite(rootNode,4,8)
+		}
+		var geometry = new THREE.BufferGeometry();
+		geometry.setAttribute("position", new THREE.BufferAttribute(new Float32Array([]), 3));
+		geometry.setIndex(new THREE.BufferAttribute(new Uint32Array([]), 1));
+		//
+		this.drawTreeHermiteRecursive(geometry, 0, rootNode, scene, alpha, leavesCutoff, leavesDensity, applesProbability, matrix)
+
+		geometry.computeVertexNormals();
+		const material = new THREE.MeshLambertMaterial({color: 0x8B5A2B,side: THREE.DoubleSide});
+		const mesh = new THREE.Mesh(geometry, material);
+		scene.add(mesh);
+
+		
 	},
 
+
+	drawTreeHermiteRecursive:function(bufferGeometry, index, node, scene, alpha, leavesCutoff, leavesDensity, applesProbability, matrix){
+		var index_now = index
+		var index_list=[] //fixed
+		//
+		for(var sec = 0; sec<node.sections.length;sec++){
+				var p_index_list=index_list
+				index_list=[]
+				// get vertices & corresponding indexes
+				var vertices = [];
+				var it=0
+				//
+				node.sections[sec].forEach((v3)=>{
+					it++
+					//
+					//console.log(v3)
+					vertices.push(v3.x,v3.y,v3.z);
+					//this.drawSphereAt(scene,v3,it*10)
+					//
+					index_list.push(index_now)
+					index_now++
+					
+				})
+				// Add vertices to the bufferGeometry
+				const newF32Vertices = new Float32Array(vertices);
+				const existingVertices = bufferGeometry.attributes.position.array;
+				const concatenated = new Float32Array(newF32Vertices.length + existingVertices.length);
+				concatenated.set(existingVertices, 0);
+				concatenated.set(newF32Vertices, existingVertices.length);
+				bufferGeometry.setAttribute("position", new THREE.BufferAttribute(concatenated, 3));
+				//
+				//
+				// Fill faces algos using the indexes of the vertices
+				//
+				if (sec==0){
+					if(!node.parentNode){
+						this.fill_bottom_ngon(bufferGeometry,index_list)
+					}
+					else{
+						//maybe logic to connect with parent 
+					}
+				}
+				else if(sec ==node.sections.length-1 && node.childNode.length==0){
+					this.fill_top_ngon(bufferGeometry,index_list)
+				}
+				if(index_list.length>0 && p_index_list.length>0){
+					this.fill_cylinder_ngon(bufferGeometry,index_list,p_index_list)
+				}
+
+			}
+			//
+			//
+			// Return
+			var child_index = index_now
+			if(node.childNode.length==0){
+				return index_now
+			}
+			else if(node.childNode.length==1){
+				return this.drawTreeHermiteRecursive(bufferGeometry,index_now,node.childNode[0],scene,alpha,leavesCutoff,leavesDensity,applesProbability,matrix)
+			}
+			else{
+				node.childNode.forEach((child)=>{
+					child_index = this.drawTreeHermiteRecursive(bufferGeometry,child_index,child,scene,alpha,leavesCutoff,leavesDensity,applesProbability,matrix)
+				})
+				return child_index
+			}
+			
+	},
+
+
+
+
+
+	fill_bottom_ngon:function(bufferGeometry,index_list){
+		//
+		faces = this.fill_ngon(bufferGeometry,index_list)
+		return
+	},
+
+	fill_top_ngon:function(bufferGeometry,index_list){
+		//
+		print("true")
+		faces = this.fill_ngon(bufferGeometry,index_list.reverse())
+		return
+	},
+
+	fill_cylinder_ngon : function(bufferGeometry,index_self, index_parent){
+		if(index_self.length!=index_parent.length){
+			return
+		}
+		//
+		for(var i = 0; i<index_self.length; i++){
+			i_1 = (i+1)%index_self.length
+			//change the order for fill_ngon to work
+			index_list = [index_parent[i],index_parent[i_1],index_self[i_1],index_self[i]]
+			this.fill_ngon(bufferGeometry,index_list)
+		}
+		return
+	},
+	
+	fill_ngon:function(bufferGeometry,index_list){
+		if(index_list.length<3){
+			return
+		}
+		if(index_list.length==3){
+			this.fill_tris(bufferGeometry, index_list)
+			return 
+		}
+		else{
+			var impairs = []
+			var tris = []
+			//
+			for(var i = 0; i<=index_list.length; i++ ){
+				//
+				index = i%index_list.length
+				tris.push(index_list[index])
+				//
+				if (tris.length==3){
+					this.fill_tris(bufferGeometry, tris)
+					tris = [index_list[index]]
+				}
+				if (i%2==0 && index_list[i]!=impairs[0]){ //on ajoute tous les indexs impairs sans dupliquer le 1er
+					impairs.push(index_list[i])
+				}
+			}
+			//on remplit la face centrale au besoin
+			this.fill_ngon(bufferGeometry,impairs)
+		}
+
+	},
+
+	fill_tris:function(bufferGeometry, index_list){
+		if(index_list.length==3){
+			if(index_list[2] == undefined){
+				return
+			}
+			//
+			//console.log(index_list)
+			const newIndexList = new Uint32Array(index_list);
+			const currentIndexArray = bufferGeometry.getIndex().array;
+
+			const concatenatedIndices = new Uint32Array(currentIndexArray.length + index_list.length);
+			concatenatedIndices.set(currentIndexArray, 0);
+			concatenatedIndices.set(newIndexList, currentIndexArray.length);
+			
+			bufferGeometry.setIndex(new THREE.BufferAttribute(concatenatedIndices, 1));
+
+		}
+	},
 
 
 	updateTreeHermite: function (trunkGeometryBuffer, leavesGeometryBuffer, applesGeometryBuffer, rootNode) {

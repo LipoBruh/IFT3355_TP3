@@ -89,11 +89,24 @@ compléter TP3.Render.drawTreeRough
       - Trace la géométrie autour de l'arbre
 
 
-Signature : 
+Branches:
+- Cylindre (CylinderBufferGeometry)
+  - Matériel -> THREE.MeshLambertMaterial({color: 0x8B5A2B})
+  - Résolution du cercle : 8 vertices
+  - Rayon top face : node.a1
+  - Rayon bottom face : node.a0
+  - Hauteur : Magnétude du vecteur (P1-P2)
+  - Position : (P1+P0)/2
 
-```
-drawTreeRough: function (rootNode, scene, alpha, radialDivisions = 8, leavesCutoff = 0.1, leavesDensity = 10, applesProbability = 0.05, matrix = new THREE.Matrix4()) 
-```
+Feuilles:
+- Qty : leavesDensity
+- Plane : new THREE.PlaneBufferGeometry(alpha,alpha);
+  - Alpha : dimensions du carré
+  - Matériel : THREE.MeshPhongMaterial({color: 0x3A5F0B,side: THREE.DoubleSide})
+  - Position : (P1+P0)/2
+  - Rotation : aléatoire sur x,y,z
+
+
 
 #### c) Courbes de Hermite (15 pts)
 
@@ -111,6 +124,14 @@ Complétez la fonction TP3.Geometry.hermite(h0, h1, v0, v1, t)
 
   - Utilité
       - Trace la géométrie autour de l'arbre
+
+PART 1 :
+
+generateSegmentsHermite
+Génère les points dans l'attribut section de chaque node correspondant aux vertices du cylindre composant le mesh de l'arbre.
+
+drawTreeHermite
+Utilise l'information générée dans l'attribut section pour la populer dans Three.BufferGeometry() et former le maillage avec le matériel approprié.
 
 
 ### Animation
