@@ -3,8 +3,13 @@ Emanuel Rollin - 20106951
 
 
 
+hello
 
+hum happy holidays and such
 
+au besoin:
+
+https://github.com/LipoBruh/IFT3355_TP3
 
 
 
@@ -134,7 +139,11 @@ drawTreeHermite
 Utilise l'information générée dans l'attribut section pour la populer dans Three.BufferGeometry() et former le maillage avec le matériel approprié.
 
 
+
+
 ### Animation
+
+
 
 
 
