@@ -23,6 +23,13 @@ TP3.Render = {
 		//CylinderBufferGeometry
 		//PlaneBufferGeometry
 		//THREE.BufferGeometryUtils.mergeBufferGeometries
+		rootNode = TP3.Geometry.simplifySkeleton(rootNode,  0.0001)
+		this.drawTreeRoughRecursive(rootNode, scene, alpha, radialDivisions, leavesCutoff, leavesDensity, applesProbability, matrix) 
+
+	},
+
+	drawTreeRoughRecursive: function (rootNode, scene, alpha, radialDivisions, leavesCutoff, leavesDensity, applesProbability, matrix) {
+		//
 		if (rootNode.childNode.length == 0){
 			this.drawBranch(rootNode,scene)
 			this.drawAppleProbability(rootNode,scene,alpha,applesProbability,leavesCutoff)
@@ -43,7 +50,11 @@ TP3.Render = {
 		}
 		
 
+
 	},
+
+
+
 	drawLeaves: function (node, scene,alpha,leavesDensity) {
 		for (var i=0; i<leavesDensity;i++){
 			this.drawLeaf(node,scene,alpha)
@@ -136,6 +147,7 @@ TP3.Render = {
 		if (!rootNode){
 			return
 		}
+		rootNode = TP3.Geometry.simplifySkeleton(rootNode,  0.0001)
 		if(rootNode.sections.length==0 && !rootNode.parentNode){
 			TP3.Geometry.generateSegmentsHermite(rootNode,4,8)
 		}

@@ -12,7 +12,51 @@ class Node {
 
 		this.sections = []; //Liste contenant une liste de points representant les segments circulaires du cylindre generalise
 		this.centers = []
+		//
+		this.transform= new THREE.Matrix4().identity();
 	}
+
+	get_original_p0(){
+		return this.p0.clone().applyMatrix4(this.transform.clone().getInverse(this.transform.clone()))
+	}
+
+	get_original_p1(){
+		return this.p1.clone().applyMatrix4(this.transform.clone().getInverse(this.transform.clone()))
+	}
+
+	get_original_v1(){
+		if(!this.parentNode){
+			return new THREE.Vector3(0,0,0)
+		}
+		var vector = new THREE.Vector3()
+		vector.subVectors( this.get_original_p1() ,this.get_original_p0() )
+		return vector
+	}
+
+	get_original_angle_parent(){
+		var v_parent = null
+		if(!this.parentNode){
+			v_parent = new THREE.Vector3(0,0,0)
+		}
+		else{
+			v_parent = this.parentNode.get_original_v1()
+		}
+		return this.get_original_v1.angleTo(v_parent)
+	}
+
+	get_angle_parent(){
+		var v_parent = null
+		if(!this.parentNode){
+			v_parent = new THREE.Vector3(0,0,0)
+		}
+		else{
+			v_parent = this.parentNode.vector1()
+		}
+		return this.get_vector1().angleTo(v_parent)
+	}
+
+	
+
 
 	generate_vector(){
 		var vector = new THREE.Vector3()
@@ -27,6 +71,15 @@ class Node {
 	}
 
 	vector1(){
+		if(!this.parentNode){
+			return new THREE.Vector3(0,0,0)
+		}
+		var vector = new THREE.Vector3()
+		vector.subVectors( this.parentNode.p1 ,this.parentNode.p0 )
+		return vector
+	}
+
+	vector0(){
 		if(!this.parentNode){
 			return new THREE.Vector3(0,0,0)
 		}
@@ -65,7 +118,89 @@ class Node {
 		
 	}
 
+	elasticForces () {
+		return this.elasticForce(this.p1.clone().applyMatrix4(this.transform.clone().getInverse(this.transform.clone())),this.p1)
+	}
+
+
+	elasticForce (origin, now) {
+		//
+		var displacement = origin.clone().sub(now);
+		var distance = displacement.length();
+		var forceMagnitude = Math.pow(distance, 2);
+		var force = displacement.normalize().multiplyScalar(forceMagnitude);
+		//
+		return force; // The force vector pointing towards the origin
+	}
+	
+
+	applyForces() {
+		const displacement = this.p1.clone().sub(this.p0);
+		// rotation = vel vectimes displacement
+		const rotationAxis = this.vel.clone().cross(displacement).normalize();
+		const angle = this.vel.length();
+		//console.log(angle)
+	
+		const rotationM4 = new THREE.Matrix4().makeRotationAxis(rotationAxis, angle);
+		//console.log(rotationM4)
+		//
+		this.rotateP1AroundPoint(this.p0,rotationM4)
+		// Apply the rotation to child nodes
+		this.rotateChildren(this.p0, rotationM4);
+	}
+	
+
+	rotateChildren(point,rotation){
+		//
+		this.childNode.forEach(child=>{
+			child.rotateAllAroundPoint(point,rotation)
+			})
+		}
+	
+	rotateAllAroundPoint(point,rotation){
+			// Translate a0 and a1 to the local coordinate space of `point`
+			this.p0.sub(point);
+			this.p1.sub(point);
+		
+			// Apply the rotation to a0 and a1
+			this.p0.applyMatrix4(rotation);
+			this.p1.applyMatrix4(rotation);
+		
+			// Translate the rotated vectors back to world space
+			this.p0.add(point);
+			this.p1.add(point);
+			//
+			//
+			// Combine the transformations: translate to local, rotate, and back to world
+			const newTransform = new THREE.Matrix4()
+				.multiply( new THREE.Matrix4().makeTranslation(-point.x, -point.y, -point.z) )
+				.multiply(rotation)
+				.multiply( new THREE.Matrix4().makeTranslation(point.x, point.y, point.z) );
+		
+			this.transform.multiply(newTransform); // Apply the combined transformation
+	}
+
+	rotateP1AroundPoint(point,rotation){
+		//
+		this.p1.sub(point);
+		this.p1.applyMatrix4(rotation);
+		this.p1.add(point);
+		//
+		//
+		// Combine the transformations: translate to local, rotate, and back to world
+		const newTransform = new THREE.Matrix4()
+			.multiply( new THREE.Matrix4().makeTranslation(-point.x, -point.y, -point.z) )
+			.multiply(rotation)
+			.multiply( new THREE.Matrix4().makeTranslation(point.x, point.y, point.z) );
+	
+		this.transform.multiply(newTransform); // Apply the combined transformation
 }
+		
+
+}
+	
+
+	
 
 TP3.Geometry = {
 /* #### a) Simplification du squelette (5 pts)
@@ -89,17 +224,19 @@ compléter TP3.Geometry.simplifySkeleton
 	},
 
 	simplifySkeletonRercusive : function(node, rotationThreshold = 0.0001){
+		
 		if (node.childNode.length==1){
+			//console.log("true")
 			//
 			child = node.childNode[0]
-			angle = this.findRotation(node.generate_vector(), child.generate_vector())
+			angle =node.generate_vector().normalize().angleTo(child.generate_vector().normalize())
 			//
 			if(Math.abs(angle)<rotationThreshold){
 				//modify current node
 				node.childNode = child.childNode
 				node.p1 = child.p1
 				node.a1 = child.a1
-				node.sections = [...this.sections, ...child.sections]
+				node.sections = [...node.sections, ...child.sections]
 				//
 				this.simplifySkeletonRercusive(node,rotationThreshold)
 				return

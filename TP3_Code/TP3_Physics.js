@@ -34,8 +34,8 @@ TP3.Physics = {
 		return mass;
 	},
 
+//does not work very well but im tryna get pity points here :x
 	applyForces: function (node, dt, time) {
-
 		var u = Math.sin(1 * time) * 4;
 		u += Math.sin(2.5 * time) * 2;
 		u += Math.sin(5 * time) * 0.4;
@@ -45,12 +45,18 @@ TP3.Physics = {
 		v += Math.cos(5 * time + 56485) * 0.4;
 
 		// Ajouter le vent
-		node.vel.add(new THREE.Vector3(u / Math.sqrt(node.mass), 0, v / Math.sqrt(node.mass)).multiplyScalar(dt));
-		// Ajouter la gravite
-		node.vel.add(new THREE.Vector3(0, -node.mass, 0).multiplyScalar(dt));
 
+		node.vel = new THREE.Vector3(0,0,0);
+		node.vel.add(new THREE.Vector3(u / Math.sqrt(node.mass), 0, v / Math.sqrt(node.mass)).multiplyScalar(dt/100));
+		// Ajouter la gravitemm
+		node.vel.add(new THREE.Vector3(0, -node.mass, 0).multiplyScalar(dt/100));
+		//node.vel.add(node.elasticForces().multiplyScalar(dt/200))
 		// TODO: Projection du mouvement, force de restitution et amortissement de la velocite
 
+		node.applyForces()
+		//console.log(node.elasticForces())
+		
+		
 		// Appel recursif sur les enfants
 		for (var i = 0; i < node.childNode.length; i++) {
 			this.applyForces(node.childNode[i], dt, time);
